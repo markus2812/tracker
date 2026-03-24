@@ -30,3 +30,12 @@ export const SettingsSchema = z.object({
 })
 
 export type Settings = z.infer<typeof SettingsSchema>
+
+export const AppSessionSchema = z.object({
+  id: z.literal('singleton').default('singleton'),
+  activeTab: z.enum(['today', 'dashboard', 'heatmap']).default('today'),
+  activeDate: isoDateSchema,
+  selectedHeatmapDate: isoDateSchema.nullable().default(null),
+})
+
+export type AppSession = z.infer<typeof AppSessionSchema>
