@@ -1,73 +1,109 @@
-# React + TypeScript + Vite
+# Tracker
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Приватний трекер стану та звичок з офлайн-режимом, локальними чернетками і серверною синхронізацією для домашнього ноутбука.
 
-Currently, two official plugins are available:
+## Що вже є
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- PWA фронтенд на `React + Vite`
+- локальний кеш і чернетки в `IndexedDB`
+- маленький API на `Node.js + SQLite`
+- одна база, яку можуть використовувати і web-застосунок, і Telegram-асистент
 
-## React Compiler
+## Як запускати локально
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+У двох терміналах:
 
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```powershell
+npm install
+npm run api
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```powershell
+npm run dev:host
 ```
+
+Фронтенд буде доступний на `http://<твій-ip>:5173`, а всі запити `/api` Vite прокине на API `http://127.0.0.1:3210`.
+
+## Як запускати як один сервіс на домашньому ноуті
+
+```powershell
+npm install
+npm run build
+npm run serve
+```
+
+Після цього сервер:
+
+- віддає API на `/api/*`
+- віддає зібраний фронтенд з `dist`
+- зберігає дані у `data/tracker.sqlite`
+
+За замовчуванням сервер слухає `0.0.0.0:3210`.
+
+## Змінні середовища
+
+- `TRACKER_HOST` - хост для API/серверу, за замовчуванням `0.0.0.0`
+- `TRACKER_PORT` - порт, за замовчуванням `3210`
+- `TRACKER_DB_PATH` - шлях до SQLite-файлу, за замовчуванням `data/tracker.sqlite`
+- `VITE_API_BASE_URL` - необов'язковий базовий URL API для фронтенда; без нього використовується `/api`
+
+## API
+
+### `GET /api/health`
+
+Повертає стан сервера.
+
+### `GET /api/entries`
+
+Опціональні query-параметри:
+
+- `from=YYYY-MM-DD`
+- `to=YYYY-MM-DD`
+
+### `GET /api/entries/:date`
+
+Повертає один запис за датою.
+
+### `PUT /api/entries/:date`
+
+Створює або оновлює запис за датою.
+
+Тіло запиту:
+
+```json
+{
+  "version": 1,
+  "date": "2026-03-24",
+  "energy": 7,
+  "mood": 6,
+  "focus": 8,
+  "deepWork": 90,
+  "workout": true,
+  "webcam": false,
+  "mj": false,
+  "alcohol": false,
+  "nicotineBefore12": false,
+  "craving": 2,
+  "notes": "Спокійний день",
+  "createdAt": "2026-03-24T18:00:00.000Z",
+  "updatedAt": "2026-03-24T18:05:00.000Z"
+}
+```
+
+### `GET /api/settings`
+
+Повертає налаштування.
+
+### `PUT /api/settings`
+
+Оновлює налаштування.
+
+## Telegram-асистент
+
+Найпростіший варіант інтеграції:
+
+1. Бот живе на тому ж ноуті або в тій же Tailscale-мережі.
+2. Бот читає записи через `GET /api/entries`.
+3. Бот створює або править записи через `PUT /api/entries/:date`.
+
+Так і web, і Telegram працюють з однією SQLite-базою.

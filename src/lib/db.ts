@@ -48,6 +48,14 @@ export async function listEntries() {
   return db.entries.orderBy('date').reverse().toArray()
 }
 
+export async function saveEntries(entries: DailyEntry[]) {
+  const parsedEntries = entries.map((entry) => DailyEntrySchema.parse(entry))
+  if (parsedEntries.length) {
+    await db.entries.bulkPut(parsedEntries)
+  }
+  return parsedEntries
+}
+
 export async function listDrafts() {
   return db.drafts.orderBy('date').reverse().toArray()
 }
