@@ -1,4 +1,4 @@
-import type { DailyEntry } from './schema'
+import type { DailyEntry, Settings } from './schema'
 
 const fallbackBaseUrl = '/api'
 
@@ -36,5 +36,16 @@ export async function upsertRemoteEntry(entry: DailyEntry) {
   return apiRequest<DailyEntry>(`/entries/${entry.date}`, {
     method: 'PUT',
     body: JSON.stringify(entry),
+  })
+}
+
+export async function getRemoteSettings() {
+  return apiRequest<Settings>('/settings')
+}
+
+export async function upsertRemoteSettings(settings: Settings) {
+  return apiRequest<Settings>('/settings', {
+    method: 'PUT',
+    body: JSON.stringify(settings),
   })
 }

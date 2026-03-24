@@ -321,6 +321,8 @@ export function RangeField({
   value,
   min,
   max,
+  step = 1,
+  unit,
   onChange,
   tone = 'blue',
 }: {
@@ -328,6 +330,8 @@ export function RangeField({
   value: number
   min: number
   max: number
+  step?: number
+  unit?: string
   onChange: (value: number) => void
   tone?: 'blue' | 'violet' | 'cyan'
 }) {
@@ -337,38 +341,45 @@ export function RangeField({
       : tone === 'cyan'
         ? 'linear-gradient(90deg, rgba(56,189,248,0.92) 0%, rgba(34,211,238,0.95) 55%, rgba(167,243,208,0.95) 100%)'
         : 'linear-gradient(90deg, rgba(244,114,182,0.92) 0%, rgba(96,165,250,0.95) 50%, rgba(167,243,208,0.95) 100%)'
+  const progress = `${((value - min) / (max - min)) * 100}%`
+  const displayValue = unit ? `${value}${unit}` : String(value)
 
   return (
-    <div className="space-y-3.5">
-      <div className="flex items-center justify-between gap-3">
+    <div className="space-y-3.5 rounded-[24px] border border-white/8 bg-white/[0.03] p-4">
+      <div className="flex items-center justify-between gap-4">
         <span className="text-[15px] font-medium text-slate-200">{label}</span>
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() => onChange(Math.max(min, value - 1))}
-            className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/10 bg-white/[0.06] text-sm text-slate-300"
+            onClick={() => onChange(Math.max(min, Math.round((value - step) * 100) / 100))}
+            className="flex h-9 w-9 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.06] text-base text-slate-300 transition hover:bg-white/[0.1]"
           >
             -
           </button>
           <button
             type="button"
-            onClick={() => onChange(Math.min(max, value + 1))}
-            className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/10 bg-white/[0.06] text-sm text-slate-300"
+            onClick={() => onChange(Math.min(max, Math.round((value + step) * 100) / 100))}
+            className="flex h-9 w-9 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.06] text-base text-slate-300 transition hover:bg-white/[0.1]"
           >
             +
           </button>
-          <span className="w-5 text-right text-[15px] text-slate-300">{value}</span>
+          <span className="min-w-10 text-right text-lg font-semibold tracking-[-0.04em] text-slate-100">{displayValue}</span>
         </div>
       </div>
       <input
         type="range"
         min={min}
         max={max}
-        step={1}
+        step={step}
         value={value}
         onChange={(event) => onChange(Number(event.target.value))}
         className="range-input w-full"
-        style={{ background: gradient }}
+        style={{
+          backgroundColor: 'rgba(255,255,255,0.08)',
+          backgroundImage: `${gradient}, linear-gradient(90deg, rgba(255,255,255,0.08), rgba(255,255,255,0.08))`,
+          backgroundRepeat: 'no-repeat',
+          backgroundSize: `${progress} 100%, 100% 100%`,
+        }}
       />
     </div>
   )
@@ -491,32 +502,33 @@ export function BottomNav({
   tab,
   onChange,
 }: {
-  tab: 'today' | 'dashboard' | 'heatmap'
-  onChange: (tab: 'today' | 'dashboard' | 'heatmap') => void
+  tab: 'today' | 'dashboard' | 'heatmap' | 'settings'
+  onChange: (tab: 'today' | 'dashboard' | 'heatmap' | 'settings') => void
 }) {
   const items = [
     { id: 'today', label: 'Сьогодні', icon: <TodayIcon /> },
     { id: 'dashboard', label: 'Огляд', icon: <GridIcon /> },
     { id: 'heatmap', label: 'Теплокарта', icon: <MapIcon /> },
+    { id: 'settings', label: 'Налаштування', icon: <SettingsIcon /> },
   ] as const
 
   return (
     <div className="fixed inset-x-0 bottom-0 z-40">
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-[linear-gradient(180deg,rgba(5,8,22,0)_0%,rgba(5,8,22,0.74)_35%,rgba(5,8,22,0.96)_72%,rgba(5,8,22,1)_100%)]" />
       <div className="relative mx-auto max-w-md px-4 pb-[calc(1.1rem+env(safe-area-inset-bottom))]">
-        <nav className="pointer-events-auto grid grid-cols-3 overflow-hidden rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(20,24,37,0.98),rgba(10,13,22,0.98))] p-1.5 shadow-[0_22px_60px_rgba(0,0,0,0.6)]">
+        <nav className="pointer-events-auto grid grid-cols-4 overflow-hidden rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(20,24,37,0.98),rgba(10,13,22,0.98))] p-1.5 shadow-[0_22px_60px_rgba(0,0,0,0.6)]">
           {items.map((item) => (
             <button
               key={item.id}
               type="button"
               onClick={() => onChange(item.id)}
               className={clsx(
-                'flex flex-col items-center justify-center gap-1 rounded-[22px] px-3 py-3 text-sm font-medium transition',
+                'flex flex-col items-center justify-center gap-1 rounded-[22px] px-2 py-3 text-sm font-medium transition',
                 tab === item.id ? 'bg-[linear-gradient(180deg,rgba(60,65,87,0.95),rgba(43,48,69,0.9))] text-slate-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]' : 'text-slate-500'
               )}
             >
               <span className="opacity-90">{item.icon}</span>
-              <span className="text-[12px]">{item.label}</span>
+              <span className="text-[11px]">{item.label}</span>
             </button>
           ))}
         </nav>
@@ -595,6 +607,51 @@ export function SmokeIcon() {
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <path d="M3 14h14a4 4 0 0 1 0 8H3z" />
       <path d="M18 6c1 1 2 2 2 4M15 4c1 1 2 2 2 4" />
+    </svg>
+  )
+}
+
+export function SettingsIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+    </svg>
+  )
+}
+
+export function MoonIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+    </svg>
+  )
+}
+
+export function StressIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" />
+      <path d="M12 8v4M12 16h.01" />
+    </svg>
+  )
+}
+
+export function BellIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+      <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+    </svg>
+  )
+}
+
+export function SyncIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="23 4 23 10 17 10" />
+      <polyline points="1 20 1 14 7 14" />
+      <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
     </svg>
   )
 }

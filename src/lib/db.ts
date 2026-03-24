@@ -2,6 +2,8 @@ import Dexie, { type Table } from 'dexie'
 import { todayKey } from './date'
 import { AppSessionSchema, DailyEntrySchema, SettingsSchema, type AppSession, type DailyEntry, type Settings } from './schema'
 
+export type { Settings }
+
 class ResetDB extends Dexie {
   entries!: Table<DailyEntry, string>
   settings!: Table<Settings, string>
@@ -42,6 +44,12 @@ export async function ensureSettings() {
   const defaults = SettingsSchema.parse({})
   await db.settings.put(defaults)
   return defaults
+}
+
+export async function saveSettings(settings: Settings) {
+  const parsed = SettingsSchema.parse(settings)
+  await db.settings.put(parsed)
+  return parsed
 }
 
 export async function listEntries() {

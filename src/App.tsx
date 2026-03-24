@@ -1,22 +1,35 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react'
 import { AppShell, BottomNav, Toast } from './components/ui'
 import { DashboardScreen } from './features/dashboard/DashboardScreen'
 import { HeatmapScreen } from './features/heatmap/HeatmapScreen'
+import { SettingsScreen } from './features/settings/SettingsScreen'
 import { TodayScreen } from './features/today/TodayScreen'
-import { listRemoteEntries, upsertRemoteEntry } from './lib/api'
-import { deleteDraft, ensureAppSession, ensureSettings, listDrafts, listEntries, saveAppSession, saveDraft, saveEntries, saveEntry } from './lib/db'
+import { getRemoteSettings, listRemoteEntries, upsertRemoteEntry, upsertRemoteSettings } from './lib/api'
+import {
+  deleteDraft,
+  ensureAppSession,
+  ensureSettings,
+  listDrafts,
+  listEntries,
+  saveAppSession,
+  saveDraft,
+  saveEntries,
+  saveEntry,
+  saveSettings,
+} from './lib/db'
 import { todayKey } from './lib/date'
-import { DailyEntrySchema, type DailyEntry } from './lib/schema'
+import { DailyEntrySchema, SettingsSchema, type DailyEntry, type Settings } from './lib/schema'
 import { createDefaultEntry, getPreviousDate } from './lib/stats'
 import { createEntrySyncPlan } from './lib/sync'
 
-type Tab = 'today' | 'dashboard' | 'heatmap'
+type Tab = 'today' | 'dashboard' | 'heatmap' | 'settings'
 type SyncState = 'offline' | 'syncing' | 'online'
 type SaveState = 'idle' | 'saving' | 'saved' | 'error'
 
 export default function App() {
   const [tab, setTab] = useState<Tab>('today')
   const [entries, setEntries] = useState<DailyEntry[]>([])
+  const [settings, setSettings] = useState<Settings>(() => SettingsSchema.parse({}))
   const [activeDate, setActiveDate] = useState(todayKey())
   const [drafts, setDrafts] = useState<Record<string, DailyEntry>>({})
   const [toast, setToast] = useState<string | null>(null)
@@ -24,15 +37,18 @@ export default function App() {
   const [isHydrated, setIsHydrated] = useState(false)
   const [syncState, setSyncState] = useState<SyncState>('offline')
   const [saveState, setSaveState] = useState<SaveState>('idle')
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null)
+  const [syncError, setSyncError] = useState<string | null>(null)
   const saveInFlightRef = useRef(false)
   const draftsRef = useRef<Record<string, DailyEntry>>({})
   const lastSavedSignatureRef = useRef('')
+  const notificationTimeoutRef = useRef<number | null>(null)
 
   useEffect(() => {
     let isMounted = true
 
     const hydrate = async () => {
-      const [, allEntries, allDrafts, session] = await Promise.all([
+      const [loadedSettings, allEntries, allDrafts, session] = await Promise.all([
         ensureSettings(),
         listEntries(),
         listDrafts(),
@@ -43,6 +59,7 @@ export default function App() {
         return
       }
 
+      setSettings(loadedSettings)
       setEntries(allEntries)
       setDrafts(Object.fromEntries(allDrafts.map((entry) => [entry.date, entry])))
       setTab(session.activeTab)
@@ -50,7 +67,7 @@ export default function App() {
       setSelectedHeatmapDate(session.selectedHeatmapDate)
       setIsHydrated(true)
 
-      void syncWithServer(allEntries)
+      void syncWithServer(allEntries, loadedSettings)
     }
 
     void hydrate()
@@ -92,6 +109,39 @@ export default function App() {
     })
   }, [activeDate, isHydrated, selectedHeatmapDate, tab])
 
+  // Schedule check-in notification
+  useEffect(() => {
+    if (!isHydrated) return
+    if (!('Notification' in window) || Notification.permission !== 'granted') return
+
+    if (notificationTimeoutRef.current !== null) {
+      window.clearTimeout(notificationTimeoutRef.current)
+    }
+
+    const todayEntry = entries.find((e) => e.date === todayKey())
+    if (todayEntry) return
+
+    const now = new Date()
+    const checkinTime = new Date()
+    checkinTime.setHours(settings.checkinHour, 0, 0, 0)
+
+    if (checkinTime <= now) return
+
+    const delay = checkinTime.getTime() - now.getTime()
+    notificationTimeoutRef.current = window.setTimeout(() => {
+      new Notification('Reset', {
+        body: 'Час для вечірнього check-in. Як пройшов день?',
+        icon: '/pwa-192.png',
+      })
+    }, delay)
+
+    return () => {
+      if (notificationTimeoutRef.current !== null) {
+        window.clearTimeout(notificationTimeoutRef.current)
+      }
+    }
+  }, [isHydrated, entries, settings.checkinHour])
+
   const storedEntry = useMemo(() => entries.find((entry) => entry.date === activeDate), [activeDate, entries])
   const pendingDraft = drafts[activeDate]
   const draft = pendingDraft ?? storedEntry ?? createDefaultEntry(activeDate)
@@ -106,7 +156,7 @@ export default function App() {
   }, [activeDate, pendingDraft, storedEntry])
 
   useEffect(() => {
-    if (!isHydrated || !pendingDraft) {
+    if (!isHydrated || !pendingDraft || !settings.autosave) {
       return
     }
 
@@ -116,17 +166,22 @@ export default function App() {
     }
 
     const timeout = window.setTimeout(() => {
-      void persistEntry(pendingDraft, 'auto')
+      handleAutoPersist(pendingDraft)
     }, 850)
 
     return () => window.clearTimeout(timeout)
-  }, [isHydrated, pendingDraft])
+  }, [isHydrated, pendingDraft, settings.autosave])
 
-  async function syncWithServer(localEntries: DailyEntry[]) {
+  async function syncWithServer(localEntries: DailyEntry[], currentSettings?: Settings) {
     setSyncState('syncing')
+    setSyncError(null)
 
     try {
-      const remoteEntries = await listRemoteEntries()
+      const [remoteEntries, remoteSettings] = await Promise.all([
+        listRemoteEntries(),
+        getRemoteSettings().catch(() => null),
+      ])
+
       const plan = createEntrySyncPlan(localEntries, remoteEntries)
 
       const uploadedEntries = await Promise.all(plan.entriesToUpload.map((entry) => upsertRemoteEntry(entry)))
@@ -137,9 +192,20 @@ export default function App() {
 
       await saveEntries(finalEntries)
       setEntries(finalEntries)
+
+      // Merge settings: local wins if remote is older or same
+      if (remoteSettings && currentSettings) {
+        const mergedSettings = SettingsSchema.parse({ ...remoteSettings, ...currentSettings })
+        await saveSettings(mergedSettings)
+        await upsertRemoteSettings(mergedSettings).catch(() => null)
+        setSettings(mergedSettings)
+      }
+
       setSyncState('online')
-    } catch {
+      setLastSyncedAt(new Date().toISOString())
+    } catch (err) {
       setSyncState('offline')
+      setSyncError(err instanceof Error ? err.message : 'Помилка синку')
     }
   }
 
@@ -185,6 +251,8 @@ export default function App() {
         await saveEntry(persistedEntry)
         didSync = true
         setSyncState('online')
+        setLastSyncedAt(new Date().toISOString())
+        setSyncError(null)
       } catch {
         setSyncState('offline')
       }
@@ -204,6 +272,10 @@ export default function App() {
       saveInFlightRef.current = false
     }
   }
+
+  const handleAutoPersist = useEffectEvent((entryToPersist: DailyEntry) => {
+    void persistEntry(entryToPersist, 'auto')
+  })
 
   async function clearMatchingDraft(sourceEntry: DailyEntry, contentSignature: string) {
     const latestDraft = draftsRef.current[sourceEntry.date]
@@ -235,6 +307,12 @@ export default function App() {
     void saveDraft(entry)
   }
 
+  async function handleSettingsChange(next: Settings) {
+    setSettings(next)
+    await saveSettings(next)
+    await upsertRemoteSettings(next).catch(() => null)
+  }
+
   function jumpToDate(date: string) {
     setActiveDate(date)
     setTab('today')
@@ -255,6 +333,7 @@ export default function App() {
             date={activeDate}
             entry={draft}
             previousEntry={previousEntry}
+            settings={settings}
             syncState={syncState}
             saveState={saveState}
             onChange={handleChange}
@@ -263,7 +342,9 @@ export default function App() {
           />
         ) : null}
 
-        {isHydrated && tab === 'dashboard' ? <DashboardScreen entries={entries} /> : null}
+        {isHydrated && tab === 'dashboard' ? (
+          <DashboardScreen entries={entries} settings={settings} />
+        ) : null}
 
         {isHydrated && tab === 'heatmap' ? (
           <HeatmapScreen
@@ -271,6 +352,17 @@ export default function App() {
             selectedDate={selectedHeatmapDate}
             onSelectDate={setSelectedHeatmapDate}
             onEditDate={jumpToDate}
+          />
+        ) : null}
+
+        {isHydrated && tab === 'settings' ? (
+          <SettingsScreen
+            settings={settings}
+            syncState={syncState}
+            lastSyncedAt={lastSyncedAt}
+            syncError={syncError}
+            onChange={handleSettingsChange}
+            onSyncNow={() => void syncWithServer(entries, settings)}
           />
         ) : null}
       </AppShell>
@@ -292,6 +384,8 @@ function getEntrySignature(entry: DailyEntry) {
     alcohol: entry.alcohol,
     nicotineBefore12: entry.nicotineBefore12,
     craving: entry.craving,
+    sleep: entry.sleep,
+    stress: entry.stress,
     notes: entry.notes.trim(),
   })
 }

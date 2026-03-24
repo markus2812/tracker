@@ -7,10 +7,12 @@ import {
   GlassIcon,
   LeafIcon,
   MicroStat,
+  MoonIcon,
   RangeField,
   ScoreDial,
   SectionHeader,
   SmokeIcon,
+  StressIcon,
   TextArea,
   ToggleField,
   WalkIcon,
@@ -25,12 +27,13 @@ import {
   getPreviousDate,
   getTodayFlags,
 } from '../../lib/stats'
-import type { DailyEntry } from '../../lib/schema'
+import type { DailyEntry, Settings } from '../../lib/schema'
 
 type TodayScreenProps = {
   date: string
   entry?: DailyEntry
   previousEntry?: DailyEntry
+  settings: Settings
   syncState: 'offline' | 'syncing' | 'online'
   saveState: 'idle' | 'saving' | 'saved' | 'error'
   onChange: (entry: DailyEntry) => void
@@ -42,6 +45,7 @@ export function TodayScreen({
   date,
   entry,
   previousEntry,
+  settings,
   syncState,
   saveState,
   onChange,
@@ -51,8 +55,8 @@ export function TodayScreen({
   const currentEntry = useMemo(() => entry ?? createDefaultEntry(date), [date, entry])
   const flags = getTodayFlags(currentEntry, previousEntry)
   const dayState = getDayState(currentEntry)
-  const level = getDayLevel(currentEntry)
-  const levelBreakdown = getDayLevelBreakdown(currentEntry)
+  const level = getDayLevel(currentEntry, settings.formulaWeights)
+  const levelBreakdown = getDayLevelBreakdown(currentEntry, settings.formulaWeights)
 
   return (
     <div className="space-y-4">
@@ -133,6 +137,24 @@ export function TodayScreen({
                   hint={currentEntry.craving >= 7 ? 'потрібен буфер' : 'контрольований'}
                   tone={currentEntry.craving >= 7 ? 'amber' : 'blue'}
                 />
+                {currentEntry.sleep > 0 ? (
+                  <MicroStat
+                    label="Сон"
+                    value={`${currentEntry.sleep}г`}
+                    hint={currentEntry.sleep < 6 ? 'мало' : currentEntry.sleep >= 8 ? 'добре' : 'нормально'}
+                    tone={currentEntry.sleep < 6 ? 'amber' : 'green'}
+                    icon={<MoonIcon />}
+                  />
+                ) : null}
+                {currentEntry.stress > 0 ? (
+                  <MicroStat
+                    label="Стрес"
+                    value={`${currentEntry.stress}/10`}
+                    hint={currentEntry.stress >= 7 ? 'високий' : 'помірний'}
+                    tone={currentEntry.stress >= 7 ? 'rose' : 'neutral'}
+                    icon={<StressIcon />}
+                  />
+                ) : null}
               </div>
             </div>
           </div>
@@ -197,13 +219,33 @@ export function TodayScreen({
         </div>
       </Card>
 
+      <Card className="space-y-5 p-5">
+        <RangeField
+          label="Сон"
+          value={currentEntry.sleep}
+          min={0}
+          max={14}
+          unit="г"
+          tone="cyan"
+          onChange={(value) => onChange({ ...currentEntry, sleep: value })}
+        />
+        <RangeField
+          label="Стрес"
+          value={currentEntry.stress}
+          min={0}
+          max={10}
+          tone="violet"
+          onChange={(value) => onChange({ ...currentEntry, stress: value })}
+        />
+      </Card>
+
       <Card className="space-y-3 p-4">
         <div className="text-xs uppercase tracking-[0.18em] text-slate-500">Тригери та опори</div>
         <ToggleField
           checked={currentEntry.workout}
           onChange={(value) => onChange({ ...currentEntry, workout: value })}
           label="Тренування або прогулянка"
-          hint="+1 до рівня"
+          hint={`+${settings.formulaWeights.workout} до рівня`}
           tone="good"
           icon={<WalkIcon />}
         />
@@ -211,7 +253,7 @@ export function TodayScreen({
           checked={currentEntry.webcam}
           onChange={(value) => onChange({ ...currentEntry, webcam: value })}
           label="Вебкам"
-          hint="-6 до рівня, критичний день"
+          hint={`${settings.formulaWeights.webcam} до рівня, критичний день`}
           tone="danger"
           icon={<CameraIcon />}
         />
@@ -219,7 +261,7 @@ export function TodayScreen({
           checked={currentEntry.mj}
           onChange={(value) => onChange({ ...currentEntry, mj: value })}
           label="MJ"
-          hint="-2 до рівня"
+          hint={`${settings.formulaWeights.mj} до рівня`}
           tone="warn"
           icon={<LeafIcon />}
         />
@@ -227,7 +269,7 @@ export function TodayScreen({
           checked={currentEntry.alcohol}
           onChange={(value) => onChange({ ...currentEntry, alcohol: value })}
           label="Алкоголь"
-          hint="-2 до рівня"
+          hint={`${settings.formulaWeights.alcohol} до рівня`}
           tone="warn"
           icon={<GlassIcon />}
         />
@@ -268,7 +310,7 @@ export function TodayScreen({
           ))}
         </div>
         <div className="rounded-[22px] border border-white/8 bg-white/[0.03] px-4 py-3 text-sm text-slate-400">
-          Deep work рахується як <span className="text-slate-200">(хв / 60) x 0.5</span> з капом <span className="text-slate-200">+2</span>.
+          Deep work: <span className="text-slate-200">(хв / 60) × {settings.formulaWeights.deepWorkRate}</span>, кап <span className="text-slate-200">+{settings.formulaWeights.deepWorkCap}</span>. Формула налаштовується у Налаштуваннях.
         </div>
       </Card>
 
@@ -277,7 +319,7 @@ export function TodayScreen({
           <div className="text-[15px] font-medium text-slate-200">Нотатки</div>
           <TextArea
             rows={3}
-            maxLength={280}
+            maxLength={settings.notesMaxLength}
             placeholder="Лише факти."
             value={currentEntry.notes}
             onChange={(event) => onChange({ ...currentEntry, notes: event.target.value })}

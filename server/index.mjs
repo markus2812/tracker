@@ -1,9 +1,13 @@
 import { createServer } from 'node:http'
 import { existsSync, readFileSync, statSync } from 'node:fs'
+import { networkInterfaces } from 'node:os'
 import { extname, join, normalize, resolve } from 'node:path'
 import { URL } from 'node:url'
-import { getDbPath, getEntry, getSettings, listEntries, saveEntry, saveSettings } from './db.mjs'
+import * as dbModule from './db.mjs'
 import { DailyEntrySchema, SettingsSchema, isoDateSchema } from './schema.mjs'
+import { startTelegramBot } from './telegram.mjs'
+
+const { getDbPath, getEntry, getSettings, listEntries, saveEntry, saveSettings } = dbModule
 
 const host = process.env.TRACKER_HOST ?? '0.0.0.0'
 const port = Number(process.env.TRACKER_PORT ?? 3210)
@@ -72,6 +76,58 @@ function resolveStaticPath(pathname) {
   const requestedPath = pathname === '/' ? 'index.html' : pathname.slice(1)
   const normalizedPath = normalize(requestedPath).replace(/^(\.\.(\/|\\|$))+/, '')
   return join(distDir, normalizedPath)
+}
+
+function isAllInterfacesHost(value) {
+  return value === '0.0.0.0' || value === '::'
+}
+
+function isTailscaleIpv4(address) {
+  const parts = address.split('.').map(Number)
+  return parts.length === 4 && parts[0] === 100 && parts[1] >= 64 && parts[1] <= 127
+}
+
+function isLanIpv4(address) {
+  const parts = address.split('.').map(Number)
+
+  if (parts.length !== 4) {
+    return false
+  }
+
+  if (parts[0] === 10 || (parts[0] === 192 && parts[1] === 168)) {
+    return true
+  }
+
+  return parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31
+}
+
+function getReachableUrls(port) {
+  const interfaces = networkInterfaces()
+  const tailscaleUrls = new Set()
+  const lanUrls = new Set()
+
+  for (const [name, addresses] of Object.entries(interfaces)) {
+    for (const addressInfo of addresses ?? []) {
+      if (addressInfo.family !== 'IPv4' || addressInfo.internal) {
+        continue
+      }
+
+      const url = `http://${addressInfo.address}:${port}`
+      if (name.toLowerCase().includes('tailscale') || isTailscaleIpv4(addressInfo.address)) {
+        tailscaleUrls.add(url)
+        continue
+      }
+
+      if (isLanIpv4(addressInfo.address)) {
+        lanUrls.add(url)
+      }
+    }
+  }
+
+  return {
+    tailscale: [...tailscaleUrls],
+    lan: [...lanUrls],
+  }
 }
 
 const server = createServer(async (request, response) => {
@@ -182,4 +238,21 @@ const server = createServer(async (request, response) => {
 server.listen(port, host, () => {
   console.log(`Tracker server listening on http://${host}:${port}`)
   console.log(`SQLite database: ${getDbPath()}`)
+
+  startTelegramBot(dbModule)
+
+  if (!isAllInterfacesHost(host)) {
+    return
+  }
+
+  console.log(`Local URL: http://127.0.0.1:${port}`)
+
+  const urls = getReachableUrls(port)
+  for (const url of urls.tailscale) {
+    console.log(`Tailnet URL: ${url}`)
+  }
+
+  for (const url of urls.lan) {
+    console.log(`LAN URL: ${url}`)
+  }
 })
