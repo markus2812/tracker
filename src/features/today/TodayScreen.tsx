@@ -214,29 +214,39 @@ export function TodayScreen({
         <div className="grid grid-cols-4 gap-2">
           <QuickChip label="0" onClick={() => onChange({ ...currentEntry, deepWork: 0 })} />
           <QuickChip label="90" onClick={() => onChange({ ...currentEntry, deepWork: 90 })} />
-          <QuickChip label="+10" onClick={() => onChange({ ...currentEntry, deepWork: currentEntry.deepWork + 10 })} />
-          <QuickChip label="+30" onClick={() => onChange({ ...currentEntry, deepWork: currentEntry.deepWork + 30 })} />
+          <QuickChip label="+10" onClick={() => onChange({ ...currentEntry, deepWork: Math.min(1440, currentEntry.deepWork + 10) })} />
+          <QuickChip label="+30" onClick={() => onChange({ ...currentEntry, deepWork: Math.min(1440, currentEntry.deepWork + 30) })} />
         </div>
       </Card>
 
       <Card className="space-y-5 p-5">
-        <RangeField
-          label="Сон"
-          value={currentEntry.sleep}
-          min={0}
-          max={14}
-          unit="г"
-          tone="cyan"
-          onChange={(value) => onChange({ ...currentEntry, sleep: value })}
-        />
-        <RangeField
-          label="Стрес"
-          value={currentEntry.stress}
-          min={0}
-          max={10}
-          tone="violet"
-          onChange={(value) => onChange({ ...currentEntry, stress: value })}
-        />
+        <div className="space-y-1">
+          <RangeField
+            label="Сон"
+            value={currentEntry.sleep}
+            min={0}
+            max={14}
+            unit="г"
+            tone="cyan"
+            onChange={(value) => onChange({ ...currentEntry, sleep: value })}
+          />
+          {currentEntry.sleep === 0 ? (
+            <div className="px-1 text-xs text-slate-600">0 = не відстежується</div>
+          ) : null}
+        </div>
+        <div className="space-y-1">
+          <RangeField
+            label="Стрес"
+            value={currentEntry.stress}
+            min={0}
+            max={10}
+            tone="violet"
+            onChange={(value) => onChange({ ...currentEntry, stress: value })}
+          />
+          {currentEntry.stress === 0 ? (
+            <div className="px-1 text-xs text-slate-600">0 = не відстежується</div>
+          ) : null}
+        </div>
       </Card>
 
       <Card className="space-y-3 p-4">
@@ -325,7 +335,10 @@ export function TodayScreen({
             onChange={(event) => onChange({ ...currentEntry, notes: event.target.value })}
           />
         </div>
-        <div className="flex justify-end">
+        <div className="flex items-center justify-between gap-3">
+          <span className={`text-xs ${currentEntry.notes.length >= settings.notesMaxLength ? 'text-rose-400' : currentEntry.notes.length >= settings.notesMaxLength * 0.85 ? 'text-amber-400' : 'text-slate-600'}`}>
+            {currentEntry.notes.length}/{settings.notesMaxLength}
+          </span>
           <Button variant="secondary" onClick={exportEntriesAsJson}>
             Експорт JSON
           </Button>
@@ -347,7 +360,7 @@ function QuickChip({ label, onClick }: { label: string; onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      className="rounded-[18px] border border-white/10 bg-white/[0.06] px-3 py-3 text-sm font-medium text-slate-100 transition hover:bg-white/[0.1]"
+      className="rounded-[18px] border border-white/10 bg-white/[0.06] px-3 py-3 text-sm font-medium text-slate-100 transition active:scale-95 hover:bg-white/[0.1]"
     >
       {label}
     </button>

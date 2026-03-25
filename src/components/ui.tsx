@@ -492,7 +492,7 @@ export function Badge({
 
 export function Toast({ message }: { message: string }) {
   return (
-    <div className="fixed left-1/2 top-5 z-50 -translate-x-1/2 rounded-full border border-emerald-400/20 bg-emerald-500/15 px-4 py-2 text-sm text-emerald-200 shadow-lg backdrop-blur">
+    <div className="toast-enter fixed left-1/2 top-5 z-50 rounded-full border border-emerald-400/20 bg-emerald-500/15 px-4 py-2 text-sm text-emerald-200 shadow-lg backdrop-blur">
       {message}
     </div>
   )
@@ -523,7 +523,7 @@ export function BottomNav({
               type="button"
               onClick={() => onChange(item.id)}
               className={clsx(
-                'flex flex-col items-center justify-center gap-1 rounded-[22px] px-2 py-3 text-sm font-medium transition',
+                'flex flex-col items-center justify-center gap-1 rounded-[22px] px-2 py-3 text-sm font-medium transition active:scale-95',
                 tab === item.id ? 'bg-[linear-gradient(180deg,rgba(60,65,87,0.95),rgba(43,48,69,0.9))] text-slate-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]' : 'text-slate-500'
               )}
             >

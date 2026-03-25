@@ -1,20 +1,21 @@
-import { Capacitor } from '@capacitor/core'
-
 export type AppPlatform = 'android' | 'ios' | 'web'
 
 export function getPlatform(): AppPlatform {
-  const platform = Capacitor.getPlatform()
-  return platform === 'android' || platform === 'ios' ? platform : 'web'
+  if (typeof navigator === 'undefined') return 'web'
+  const ua = navigator.userAgent
+  if (/android/i.test(ua)) return 'android'
+  if (/iphone|ipad|ipod/i.test(ua)) return 'ios'
+  return 'web'
 }
 
 export function isNativeApp() {
-  return Capacitor.isNativePlatform()
+  return false
 }
 
 export function supportsServiceWorker() {
-  return !isNativeApp() && typeof navigator !== 'undefined' && 'serviceWorker' in navigator
+  return typeof navigator !== 'undefined' && 'serviceWorker' in navigator
 }
 
 export function supportsWebNotifications() {
-  return !isNativeApp() && typeof window !== 'undefined' && 'Notification' in window
+  return typeof window !== 'undefined' && 'Notification' in window
 }

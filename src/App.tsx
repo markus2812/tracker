@@ -66,7 +66,8 @@ export default function App() {
       setEntries(allEntries)
       setDrafts(Object.fromEntries(allDrafts.map((entry) => [entry.date, entry])))
       setTab(session.activeTab)
-      setActiveDate(session.activeDate)
+      // Always open on today if the stored date is from a previous day
+      setActiveDate(session.activeDate < todayKey() ? todayKey() : session.activeDate)
       setSelectedHeatmapDate(session.selectedHeatmapDate)
       setIsHydrated(true)
 
@@ -336,46 +337,44 @@ export default function App() {
             Відновлюю локальні дані...
           </div>
         ) : null}
-        {isHydrated && tab === 'today' ? (
-          <TodayScreen
-            date={activeDate}
-            entry={draft}
-            previousEntry={previousEntry}
-            settings={settings}
-            syncState={syncState}
-            saveState={saveState}
-            onChange={handleChange}
-            onSave={handleSave}
-            onJumpToToday={() => setActiveDate(todayKey())}
-          />
-        ) : null}
-
-        {isHydrated && tab === 'dashboard' ? (
-          <DashboardScreen entries={entries} settings={settings} />
-        ) : null}
-
-        {isHydrated && tab === 'heatmap' ? (
-          <HeatmapScreen
-            entries={entries}
-            selectedDate={selectedHeatmapDate}
-            onSelectDate={setSelectedHeatmapDate}
-            onEditDate={jumpToDate}
-          />
-        ) : null}
-
-        {isHydrated && tab === 'settings' ? (
-          <SettingsScreen
-            settings={settings}
-            apiBaseUrl={apiBaseUrl}
-            isNativeApp={isNativeApp()}
-            platform={getPlatform()}
-            syncState={syncState}
-            lastSyncedAt={lastSyncedAt}
-            syncError={syncError}
-            onChange={handleSettingsChange}
-            onApiBaseUrlChange={handleApiBaseUrlSave}
-            onSyncNow={() => void syncWithServer(entries, settings)}
-          />
+        {isHydrated ? (
+          <div key={tab} className="screen-enter">
+            {tab === 'today' ? (
+              <TodayScreen
+                date={activeDate}
+                entry={draft}
+                previousEntry={previousEntry}
+                settings={settings}
+                syncState={syncState}
+                saveState={saveState}
+                onChange={handleChange}
+                onSave={handleSave}
+                onJumpToToday={() => setActiveDate(todayKey())}
+              />
+            ) : tab === 'dashboard' ? (
+              <DashboardScreen entries={entries} settings={settings} />
+            ) : tab === 'heatmap' ? (
+              <HeatmapScreen
+                entries={entries}
+                selectedDate={selectedHeatmapDate}
+                onSelectDate={setSelectedHeatmapDate}
+                onEditDate={jumpToDate}
+              />
+            ) : (
+              <SettingsScreen
+                settings={settings}
+                apiBaseUrl={apiBaseUrl}
+                isNativeApp={isNativeApp()}
+                platform={getPlatform()}
+                syncState={syncState}
+                lastSyncedAt={lastSyncedAt}
+                syncError={syncError}
+                onChange={handleSettingsChange}
+                onApiBaseUrlChange={handleApiBaseUrlSave}
+                onSyncNow={() => void syncWithServer(entries, settings)}
+              />
+            )}
+          </div>
         ) : null}
       </AppShell>
       {isHydrated ? <BottomNav tab={tab} onChange={setTab} /> : null}
