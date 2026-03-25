@@ -1,12 +1,17 @@
 import { BellIcon, Button, Card, SectionHeader, SettingsIcon, SyncIcon, ToggleField } from '../../components/ui'
 import { DEFAULT_FORMULA_WEIGHTS, type FormulaWeights, type Settings } from '../../lib/schema'
+import { supportsWebNotifications } from '../../lib/runtime'
 
 type SettingsScreenProps = {
   settings: Settings
+  apiBaseUrl: string
+  isNativeApp: boolean
+  platform: 'android' | 'ios' | 'web'
   syncState: 'offline' | 'syncing' | 'online'
   lastSyncedAt: string | null
   syncError: string | null
   onChange: (settings: Settings) => void
+  onApiBaseUrlChange: (value: string) => void
   onSyncNow: () => void
 }
 
@@ -24,12 +29,23 @@ function formatSyncTime(iso: string | null) {
 }
 
 async function requestNotificationPermission() {
-  if (!('Notification' in window)) return 'unsupported'
+  if (!supportsWebNotifications()) return 'unsupported'
   if (Notification.permission === 'granted') return 'granted'
   return Notification.requestPermission()
 }
 
-export function SettingsScreen({ settings, syncState, lastSyncedAt, syncError, onChange, onSyncNow }: SettingsScreenProps) {
+export function SettingsScreen({
+  settings,
+  apiBaseUrl,
+  isNativeApp,
+  platform,
+  syncState,
+  lastSyncedAt,
+  syncError,
+  onChange,
+  onApiBaseUrlChange,
+  onSyncNow,
+}: SettingsScreenProps) {
   const w = settings.formulaWeights
 
   function setWeights(patch: Partial<FormulaWeights>) {
@@ -76,7 +92,7 @@ export function SettingsScreen({ settings, syncState, lastSyncedAt, syncError, o
 
         <div className="space-y-2 pt-1">
           <div className="text-xs uppercase tracking-[0.18em] text-slate-500">Push-сповіщення</div>
-          {'Notification' in window ? (
+          {supportsWebNotifications() ? (
             <div className="flex items-center justify-between gap-3">
               <span className="text-sm text-slate-300">
                 {Notification.permission === 'granted'
@@ -96,8 +112,41 @@ export function SettingsScreen({ settings, syncState, lastSyncedAt, syncError, o
               )}
             </div>
           ) : (
-            <div className="text-sm text-slate-500">Push-сповіщення не підтримуються у цьому браузері.</div>
+            <div className="text-sm text-slate-500">
+              {isNativeApp
+                ? 'У native-збірці локальні нагадування підключимо окремо через Capacitor plugin.'
+                : 'Push-сповіщення не підтримуються у цьому браузері.'}
+            </div>
           )}
+        </div>
+      </Card>
+
+      <Card className="space-y-4 p-5">
+        <div className="flex items-center gap-2">
+          <SyncIcon />
+          <div className="text-[15px] font-medium text-slate-100">Сервер</div>
+        </div>
+
+        <div className="space-y-2">
+          <div className="text-xs uppercase tracking-[0.18em] text-slate-500">API base URL</div>
+          <input
+            type="url"
+            inputMode="url"
+            placeholder={isNativeApp ? 'https://your-server.example.com/api' : 'Порожньо = /api'}
+            value={apiBaseUrl}
+            onChange={(event) => onApiBaseUrlChange(event.target.value)}
+            className="w-full rounded-[22px] border border-white/8 bg-[linear-gradient(180deg,rgba(34,39,55,0.72),rgba(27,31,45,0.66))] px-4 py-3.5 text-base text-slate-100 outline-none transition placeholder:text-slate-600 focus:border-white/20 focus:bg-white/[0.05]"
+          />
+          <div className="text-sm text-slate-500">
+            {isNativeApp
+              ? 'Для мобільної збірки вкажи повний URL до домашнього серверу. На iPhone краще використовувати HTTPS, бо plain HTTP часто блокується системою.'
+              : 'У веб-версії можна лишити поле порожнім, тоді використається локальний /api proxy.'}
+          </div>
+          {platform === 'ios' && apiBaseUrl.startsWith('http://') ? (
+            <div className="rounded-[18px] border border-amber-400/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+              Для iPhone цей `http://` URL може не пройти через App Transport Security. Надійніший варіант тут: `https://.../api`.
+            </div>
+          ) : null}
         </div>
       </Card>
 

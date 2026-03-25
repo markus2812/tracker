@@ -17,6 +17,13 @@ export function getLastNDates(count: number, endDate = todayKey()) {
   return Array.from({ length: count }, (_, index) => shiftDate(endDate, -(count - 1 - index)))
 }
 
+export function getWeekStart(dateKey: string) {
+  const base = new Date(`${dateKey}T12:00:00`)
+  const day = base.getDay()
+  const offset = day === 0 ? -6 : 1 - day
+  return shiftDate(dateKey, offset)
+}
+
 export function formatShortDate(dateKey: string) {
   return new Intl.DateTimeFormat(undefined, {
     month: 'short',

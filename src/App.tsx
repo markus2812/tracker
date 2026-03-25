@@ -21,6 +21,8 @@ import { todayKey } from './lib/date'
 import { DailyEntrySchema, SettingsSchema, type DailyEntry, type Settings } from './lib/schema'
 import { createDefaultEntry, getPreviousDate } from './lib/stats'
 import { createEntrySyncPlan } from './lib/sync'
+import { getStoredApiBaseUrl, setStoredApiBaseUrl } from './lib/api-config'
+import { getPlatform, isNativeApp, supportsWebNotifications } from './lib/runtime'
 
 type Tab = 'today' | 'dashboard' | 'heatmap' | 'settings'
 type SyncState = 'offline' | 'syncing' | 'online'
@@ -39,6 +41,7 @@ export default function App() {
   const [saveState, setSaveState] = useState<SaveState>('idle')
   const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null)
   const [syncError, setSyncError] = useState<string | null>(null)
+  const [apiBaseUrl, setApiBaseUrl] = useState(() => getStoredApiBaseUrl() ?? '')
   const saveInFlightRef = useRef(false)
   const draftsRef = useRef<Record<string, DailyEntry>>({})
   const lastSavedSignatureRef = useRef('')
@@ -112,7 +115,7 @@ export default function App() {
   // Schedule check-in notification
   useEffect(() => {
     if (!isHydrated) return
-    if (!('Notification' in window) || Notification.permission !== 'granted') return
+    if (!supportsWebNotifications() || Notification.permission !== 'granted') return
 
     if (notificationTimeoutRef.current !== null) {
       window.clearTimeout(notificationTimeoutRef.current)
@@ -313,6 +316,11 @@ export default function App() {
     await upsertRemoteSettings(next).catch(() => null)
   }
 
+  function handleApiBaseUrlSave(nextValue: string) {
+    const normalized = setStoredApiBaseUrl(nextValue) ?? ''
+    setApiBaseUrl(normalized)
+  }
+
   function jumpToDate(date: string) {
     setActiveDate(date)
     setTab('today')
@@ -358,10 +366,14 @@ export default function App() {
         {isHydrated && tab === 'settings' ? (
           <SettingsScreen
             settings={settings}
+            apiBaseUrl={apiBaseUrl}
+            isNativeApp={isNativeApp()}
+            platform={getPlatform()}
             syncState={syncState}
             lastSyncedAt={lastSyncedAt}
             syncError={syncError}
             onChange={handleSettingsChange}
+            onApiBaseUrlChange={handleApiBaseUrlSave}
             onSyncNow={() => void syncWithServer(entries, settings)}
           />
         ) : null}

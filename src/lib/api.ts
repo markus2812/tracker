@@ -1,14 +1,23 @@
 import type { DailyEntry, Settings } from './schema'
+import { getStoredApiBaseUrl } from './api-config'
+import { isNativeApp } from './runtime'
 
 const fallbackBaseUrl = '/api'
 
 function getApiBaseUrl() {
   const configuredUrl = import.meta.env.VITE_API_BASE_URL
-  if (!configuredUrl) {
-    return fallbackBaseUrl
+  const storedUrl = getStoredApiBaseUrl()
+
+  const resolvedUrl = configuredUrl || storedUrl
+  if (resolvedUrl) {
+    return resolvedUrl.endsWith('/') ? resolvedUrl.slice(0, -1) : resolvedUrl
   }
 
-  return configuredUrl.endsWith('/') ? configuredUrl.slice(0, -1) : configuredUrl
+  if (isNativeApp()) {
+    throw new Error('Set the server URL in Settings to enable sync in the mobile app.')
+  }
+
+  return fallbackBaseUrl
 }
 
 async function apiRequest<T>(path: string, init?: RequestInit) {
