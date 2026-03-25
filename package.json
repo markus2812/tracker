@@ -9,7 +9,8 @@
     "api": "node server/index.mjs",
     "api:watch": "node --watch server/index.mjs",
     "build": "tsc -b && vite build",
-"serve": "node server/index.mjs",
+    "start": "node server/index.mjs",
+    "serve": "node server/index.mjs",
     "lint": "eslint .",
     "preview": "vite preview"
   },
