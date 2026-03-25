@@ -124,7 +124,7 @@ export function SettingsScreen({
           <input
             type="url"
             inputMode="url"
-            placeholder={isNativeApp ? 'https://your-server.example.com/api' : 'Порожньо = /api'}
+            placeholder="Порожньо = /api"
             value={apiBaseUrl}
             onChange={(event) => onApiBaseUrlChange(event.target.value)}
             className="w-full rounded-[22px] border border-white/8 bg-[linear-gradient(180deg,rgba(34,39,55,0.72),rgba(27,31,45,0.66))] px-4 py-3.5 text-base text-slate-100 outline-none transition placeholder:text-slate-600 focus:border-white/20 focus:bg-white/[0.05]"
