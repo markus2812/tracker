@@ -1,5 +1,5 @@
-import { useEffect, useEffectEvent, useMemo, useRef, useState } from 'react'
-import { AppShell, BottomNav, Toast } from './components/ui'
+import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react'
+import { AppShell, BottomNav, Skeleton, Toast } from './components/ui'
 import { DashboardScreen } from './features/dashboard/DashboardScreen'
 import { HeatmapScreen } from './features/heatmap/HeatmapScreen'
 import { SettingsScreen } from './features/settings/SettingsScreen'
@@ -22,7 +22,7 @@ import { DailyEntrySchema, SettingsSchema, type DailyEntry, type Settings } from
 import { createDefaultEntry, getPreviousDate } from './lib/stats'
 import { createEntrySyncPlan } from './lib/sync'
 import { getStoredApiBaseUrl, setStoredApiBaseUrl } from './lib/api-config'
-import { getPlatform, isNativeApp, supportsWebNotifications } from './lib/runtime'
+import { supportsWebNotifications } from './lib/runtime'
 
 type Tab = 'today' | 'dashboard' | 'heatmap' | 'settings'
 type SyncState = 'offline' | 'syncing' | 'online'
@@ -213,6 +213,11 @@ export default function App() {
     }
   }
 
+  // Scroll to top when switching tabs
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'instant' })
+  }, [tab])
+
   async function persistEntry(sourceEntry: DailyEntry, mode: 'auto' | 'manual') {
     const contentSignature = getEntrySignature(sourceEntry)
     if (contentSignature === lastSavedSignatureRef.current) {
@@ -301,40 +306,43 @@ export default function App() {
     })
   }
 
-  async function handleSave() {
+  const handleSave = useCallback(async () => {
     await persistEntry(draft, 'manual')
-  }
+  }, [draft])
 
-  function handleChange(entry: DailyEntry) {
+  const handleChange = useCallback((entry: DailyEntry) => {
     setSaveState('idle')
     setDrafts((current) => ({ ...current, [entry.date]: entry }))
     void saveDraft(entry)
-  }
+  }, [])
 
-  async function handleSettingsChange(next: Settings) {
+  const handleSettingsChange = useCallback(async (next: Settings) => {
     setSettings(next)
     await saveSettings(next)
     await upsertRemoteSettings(next).catch(() => null)
-  }
+  }, [])
 
-  function handleApiBaseUrlSave(nextValue: string) {
+  const handleApiBaseUrlSave = useCallback((nextValue: string) => {
     const normalized = setStoredApiBaseUrl(nextValue) ?? ''
     setApiBaseUrl(normalized)
-  }
+  }, [])
 
-  function jumpToDate(date: string) {
+  const jumpToDate = useCallback((date: string) => {
     setActiveDate(date)
     setTab('today')
     setSelectedHeatmapDate(null)
-  }
+  }, [])
 
   return (
     <>
-      {toast ? <Toast message={toast} /> : null}
+      {toast ? <Toast message={toast} onDismiss={() => setToast(null)} /> : null}
       <AppShell>
         {!isHydrated ? (
-          <div className="rounded-[28px] border border-white/10 bg-white/[0.04] px-5 py-12 text-center text-sm text-slate-400">
-            Відновлюю локальні дані...
+          <div className="space-y-4 pt-2">
+            <Skeleton className="h-16" />
+            <Skeleton className="h-48" />
+            <Skeleton className="h-36" />
+            <Skeleton className="h-56" />
           </div>
         ) : null}
         {isHydrated ? (
@@ -364,8 +372,6 @@ export default function App() {
               <SettingsScreen
                 settings={settings}
                 apiBaseUrl={apiBaseUrl}
-                isNativeApp={isNativeApp()}
-                platform={getPlatform()}
                 syncState={syncState}
                 lastSyncedAt={lastSyncedAt}
                 syncError={syncError}

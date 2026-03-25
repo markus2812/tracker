@@ -5,8 +5,6 @@ import { supportsWebNotifications } from '../../lib/runtime'
 type SettingsScreenProps = {
   settings: Settings
   apiBaseUrl: string
-  isNativeApp: boolean
-  platform: 'android' | 'ios' | 'web'
   syncState: 'offline' | 'syncing' | 'online'
   lastSyncedAt: string | null
   syncError: string | null
@@ -37,8 +35,6 @@ async function requestNotificationPermission() {
 export function SettingsScreen({
   settings,
   apiBaseUrl,
-  isNativeApp,
-  platform,
   syncState,
   lastSyncedAt,
   syncError,
@@ -94,7 +90,7 @@ export function SettingsScreen({
           <div className="text-xs uppercase tracking-[0.18em] text-slate-500">Push-сповіщення</div>
           {supportsWebNotifications() ? (
             <div className="flex items-center justify-between gap-3">
-              <span className="text-sm text-slate-300">
+              <span className={`text-sm ${Notification.permission === 'granted' ? 'text-emerald-300' : Notification.permission === 'denied' ? 'text-rose-300' : 'text-slate-300'}`}>
                 {Notification.permission === 'granted'
                   ? 'Дозволено'
                   : Notification.permission === 'denied'
@@ -112,11 +108,7 @@ export function SettingsScreen({
               )}
             </div>
           ) : (
-            <div className="text-sm text-slate-500">
-              {isNativeApp
-                ? 'У native-збірці локальні нагадування підключимо окремо через Capacitor plugin.'
-                : 'Push-сповіщення не підтримуються у цьому браузері.'}
-            </div>
+            <div className="text-sm text-slate-500">Push-сповіщення не підтримуються у цьому браузері.</div>
           )}
         </div>
       </Card>
@@ -138,15 +130,8 @@ export function SettingsScreen({
             className="w-full rounded-[22px] border border-white/8 bg-[linear-gradient(180deg,rgba(34,39,55,0.72),rgba(27,31,45,0.66))] px-4 py-3.5 text-base text-slate-100 outline-none transition placeholder:text-slate-600 focus:border-white/20 focus:bg-white/[0.05]"
           />
           <div className="text-sm text-slate-500">
-            {isNativeApp
-              ? 'Для мобільної збірки вкажи повний URL до домашнього серверу. На iPhone краще використовувати HTTPS, бо plain HTTP часто блокується системою.'
-              : 'У веб-версії можна лишити поле порожнім, тоді використається локальний /api proxy.'}
+            Порожньо = використається локальний <code className="rounded px-1 text-slate-400">/api</code> proxy. Для зовнішнього доступу — вкажи повний URL.
           </div>
-          {platform === 'ios' && apiBaseUrl.startsWith('http://') ? (
-            <div className="rounded-[18px] border border-amber-400/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
-              Для iPhone цей `http://` URL може не пройти через App Transport Security. Надійніший варіант тут: `https://.../api`.
-            </div>
-          ) : null}
         </div>
       </Card>
 

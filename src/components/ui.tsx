@@ -1,5 +1,6 @@
 import clsx from 'clsx'
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, TextareaHTMLAttributes } from 'react'
+import { useEffect, useRef } from 'react'
 
 export function AppShell({ children }: { children: ReactNode }) {
   return (
@@ -61,7 +62,7 @@ export function Button({
   return (
     <button
       className={clsx(
-        'rounded-full px-4 py-3 text-sm font-semibold transition active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60',
+        'rounded-full px-4 py-3 text-sm font-semibold transition active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-60',
         variant === 'primary' && 'bg-slate-50 text-slate-950 shadow-[0_8px_28px_rgba(255,255,255,0.1)] hover:bg-white',
         variant === 'secondary' && 'border border-white/10 bg-white/[0.06] text-slate-100 hover:bg-white/[0.1]',
         className
@@ -70,6 +71,12 @@ export function Button({
     >
       {children}
     </button>
+  )
+}
+
+export function Skeleton({ className }: { className?: string }) {
+  return (
+    <div className={clsx('animate-pulse rounded-[28px] bg-white/[0.04]', className)} />
   )
 }
 
@@ -316,6 +323,76 @@ export function SparkBars({
   )
 }
 
+export function SparkLine({
+  values,
+  max = 10,
+  tone = 'blue',
+}: {
+  values: number[]
+  max?: number
+  tone?: 'blue' | 'green' | 'amber'
+}) {
+  const stroke = tone === 'green' ? '#34d399' : tone === 'amber' ? '#fbbf24' : '#60a5fa'
+  const fill = tone === 'green' ? 'rgba(52,211,153,0.12)' : tone === 'amber' ? 'rgba(251,191,36,0.12)' : 'rgba(96,165,250,0.12)'
+
+  const W = 280
+  const H = 44
+  const PAD = 6
+
+  const pts = values.map((v, i) => {
+    const x = PAD + (i / (values.length - 1)) * (W - PAD * 2)
+    const y = v > 0 ? PAD + (1 - v / max) * (H - PAD * 2) : H / 2
+    return { x, y, hasValue: v > 0 }
+  })
+
+  // Build smooth polyline only through points with values
+  const segments: { x: number; y: number }[][] = []
+  let current: { x: number; y: number }[] = []
+  for (const pt of pts) {
+    if (pt.hasValue) {
+      current.push({ x: pt.x, y: pt.y })
+    } else {
+      if (current.length > 1) segments.push(current)
+      else if (current.length === 1) segments.push(current)
+      current = []
+    }
+  }
+  if (current.length) segments.push(current)
+
+  function toPath(seg: { x: number; y: number }[]) {
+    if (seg.length === 1) return `M ${seg[0].x} ${seg[0].y}`
+    const d = seg.map((p, i) => (i === 0 ? `M ${p.x} ${p.y}` : `L ${p.x} ${p.y}`)).join(' ')
+    return d
+  }
+
+  function toArea(seg: { x: number; y: number }[]) {
+    if (seg.length < 2) return ''
+    const line = seg.map((p, i) => (i === 0 ? `M ${p.x} ${p.y}` : `L ${p.x} ${p.y}`)).join(' ')
+    return `${line} L ${seg[seg.length - 1].x} ${H} L ${seg[0].x} ${H} Z`
+  }
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height: H }}>
+      {/* area fill */}
+      {segments.map((seg, si) => (
+        <path key={`area-${si}`} d={toArea(seg)} fill={fill} />
+      ))}
+      {/* line */}
+      {segments.map((seg, si) => (
+        <path key={`line-${si}`} d={toPath(seg)} fill="none" stroke={stroke} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity="0.9" />
+      ))}
+      {/* dots */}
+      {pts.map((pt, i) =>
+        pt.hasValue ? (
+          <circle key={i} cx={pt.x} cy={pt.y} r="3" fill={stroke} opacity="0.95" />
+        ) : (
+          <circle key={i} cx={pt.x} cy={pt.y} r="2" fill="rgba(255,255,255,0.12)" />
+        )
+      )}
+    </svg>
+  )
+}
+
 export function RangeField({
   label,
   value,
@@ -352,14 +429,14 @@ export function RangeField({
           <button
             type="button"
             onClick={() => onChange(Math.max(min, Math.round((value - step) * 100) / 100))}
-            className="flex h-9 w-9 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.06] text-base text-slate-300 transition hover:bg-white/[0.1]"
+            className="flex h-9 w-9 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.06] text-base text-slate-300 transition active:scale-90 hover:bg-white/[0.1]"
           >
-            -
+            −
           </button>
           <button
             type="button"
             onClick={() => onChange(Math.min(max, Math.round((value + step) * 100) / 100))}
-            className="flex h-9 w-9 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.06] text-base text-slate-300 transition hover:bg-white/[0.1]"
+            className="flex h-9 w-9 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.06] text-base text-slate-300 transition active:scale-90 hover:bg-white/[0.1]"
           >
             +
           </button>
@@ -400,43 +477,62 @@ export function ToggleField({
   onChange: (value: boolean) => void
   icon?: ReactNode
 }) {
-  const toneClass =
-    tone === 'danger'
-      ? 'data-[checked=true]:bg-rose-500'
+  const trackColor = checked
+    ? tone === 'danger'
+      ? 'bg-rose-500 border-rose-500/40'
       : tone === 'warn'
-        ? 'data-[checked=true]:bg-amber-400'
+        ? 'bg-amber-400 border-amber-400/40'
         : tone === 'good'
-          ? 'data-[checked=true]:bg-emerald-500'
-          : 'data-[checked=true]:bg-slate-200'
+          ? 'bg-emerald-500 border-emerald-500/40'
+          : 'bg-slate-300 border-slate-300/40'
+    : 'bg-white/10 border-white/10'
 
   return (
     <button
       type="button"
-      data-checked={checked}
       onClick={() => onChange(!checked)}
-      className="flex min-h-18 w-full items-center justify-between gap-3 rounded-[22px] border border-white/8 bg-[linear-gradient(180deg,rgba(34,39,55,0.72),rgba(27,31,45,0.66))] px-4 py-3.5 text-left transition hover:bg-white/[0.05]"
+      className={clsx(
+        'flex min-h-18 w-full items-center justify-between gap-3 rounded-[22px] border px-4 py-3.5 text-left transition',
+        checked
+          ? tone === 'danger'
+            ? 'border-rose-500/20 bg-[linear-gradient(180deg,rgba(80,20,35,0.6),rgba(44,10,20,0.55))]'
+            : tone === 'warn'
+              ? 'border-amber-400/20 bg-[linear-gradient(180deg,rgba(70,50,10,0.6),rgba(40,30,5,0.55))]'
+              : tone === 'good'
+                ? 'border-emerald-500/20 bg-[linear-gradient(180deg,rgba(10,60,40,0.6),rgba(5,35,25,0.55))]'
+                : 'border-white/12 bg-white/[0.06]'
+          : 'border-white/8 bg-[linear-gradient(180deg,rgba(34,39,55,0.72),rgba(27,31,45,0.66))] hover:bg-white/[0.05]'
+      )}
     >
       <div className="flex items-center gap-3">
         {icon ? (
-          <span className="flex h-9 w-9 items-center justify-center rounded-2xl border border-white/8 bg-white/[0.04] text-slate-300">
+          <span className={clsx(
+            'flex h-9 w-9 items-center justify-center rounded-2xl border transition',
+            checked
+              ? tone === 'danger' ? 'border-rose-400/20 bg-rose-500/15 text-rose-300'
+              : tone === 'warn' ? 'border-amber-400/20 bg-amber-400/15 text-amber-300'
+              : tone === 'good' ? 'border-emerald-400/20 bg-emerald-500/15 text-emerald-300'
+              : 'border-white/12 bg-white/[0.08] text-slate-200'
+              : 'border-white/8 bg-white/[0.04] text-slate-400'
+          )}>
             {icon}
           </span>
         ) : null}
         <div>
-        <div className="text-[15px] font-medium text-slate-100">{label}</div>
-        <div className="mt-0.5 text-xs text-slate-500">{hint}</div>
+          <div className={clsx('text-[15px] font-medium transition', checked ? 'text-slate-100' : 'text-slate-300')}>{label}</div>
+          <div className="mt-0.5 text-xs text-slate-500">{hint}</div>
         </div>
       </div>
       <span
         className={clsx(
-          'relative h-9 w-15 rounded-full border border-white/10 bg-white/10 transition shadow-inner',
-          toneClass
+          'relative h-9 w-15 shrink-0 rounded-full border transition-all duration-200 shadow-inner',
+          trackColor
         )}
       >
         <span
           className={clsx(
-            'absolute left-1 top-1 h-7 w-7 rounded-full bg-white transition',
-            checked && 'translate-x-5.5'
+            'absolute left-1 top-1 h-7 w-7 rounded-full transition-all duration-200',
+            checked ? 'translate-x-5.5 bg-white shadow-[0_2px_8px_rgba(0,0,0,0.35)]' : 'bg-white/80'
           )}
         />
       </span>
@@ -456,13 +552,27 @@ export function NumberInput(props: InputHTMLAttributes<HTMLInputElement>) {
   )
 }
 
-export function TextArea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
+export function TextArea({ className, ...props }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  const ref = useRef<HTMLTextAreaElement>(null)
+
+  function resize() {
+    const el = ref.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${el.scrollHeight}px`
+  }
+
+  useEffect(() => { resize() }, [props.value])
+
   return (
     <textarea
+      ref={ref}
+      rows={3}
+      onInput={resize}
       {...props}
       className={clsx(
-        'w-full rounded-[22px] border border-white/8 bg-[linear-gradient(180deg,rgba(34,39,55,0.72),rgba(27,31,45,0.66))] px-4 py-3.5 text-base text-slate-100 outline-none transition placeholder:text-slate-600 focus:border-white/20 focus:bg-white/[0.05]',
-        props.className
+        'w-full resize-none rounded-[22px] border border-white/8 bg-[linear-gradient(180deg,rgba(34,39,55,0.72),rgba(27,31,45,0.66))] px-4 py-3.5 text-base text-slate-100 outline-none transition placeholder:text-slate-600 focus:border-white/20 focus:bg-white/[0.05]',
+        className
       )}
     />
   )
@@ -490,11 +600,15 @@ export function Badge({
   )
 }
 
-export function Toast({ message }: { message: string }) {
+export function Toast({ message, onDismiss }: { message: string; onDismiss?: () => void }) {
   return (
-    <div className="toast-enter fixed left-1/2 top-5 z-50 rounded-full border border-emerald-400/20 bg-emerald-500/15 px-4 py-2 text-sm text-emerald-200 shadow-lg backdrop-blur">
+    <button
+      type="button"
+      onClick={onDismiss}
+      className="toast-enter fixed left-1/2 top-5 z-50 cursor-pointer rounded-full border border-emerald-400/20 bg-emerald-500/15 px-4 py-2 text-sm text-emerald-200 shadow-lg backdrop-blur transition active:scale-95"
+    >
       {message}
-    </div>
+    </button>
   )
 }
 

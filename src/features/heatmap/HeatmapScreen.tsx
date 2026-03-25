@@ -1,4 +1,4 @@
-import { Fragment } from 'react'
+import { Fragment, useMemo } from 'react'
 import { Badge, Button, Card, HeroPanel, MicroStat, ScoreDial, SectionHeader, StatStrip } from '../../components/ui'
 import { formatLongDate, formatShortDate } from '../../lib/date'
 import { buildHeatmapWeeks, getDayLevel, getEntryTone, getMissedDays } from '../../lib/stats'
@@ -14,14 +14,14 @@ type HeatmapScreenProps = {
 const weekdayLabels = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд']
 
 export function HeatmapScreen({ entries, selectedDate, onSelectDate, onEditDate }: HeatmapScreenProps) {
-  const entryMap = new Map(entries.map((entry) => [entry.date, entry]))
-  const weeks = buildHeatmapWeeks(entryMap, 12)
-  const days = weeks.flat()
+  const entryMap = useMemo(() => new Map(entries.map((entry) => [entry.date, entry])), [entries])
+  const weeks = useMemo(() => buildHeatmapWeeks(entryMap, 12), [entryMap])
+  const days = useMemo(() => weeks.flat(), [weeks])
   const selectedEntry = selectedDate ? entryMap.get(selectedDate) : undefined
-  const cleanCount = days.filter((day) => day.tone === 'green').length
-  const warnCount = days.filter((day) => day.tone === 'yellow').length
-  const redCount = days.filter((day) => day.tone === 'red').length
-  const missedDays = getMissedDays(entries, 30)
+  const cleanCount = useMemo(() => days.filter((day) => day.tone === 'green').length, [days])
+  const warnCount = useMemo(() => days.filter((day) => day.tone === 'yellow').length, [days])
+  const redCount = useMemo(() => days.filter((day) => day.tone === 'red').length, [days])
+  const missedDays = useMemo(() => getMissedDays(entries, 30), [entries])
 
   return (
     <div className="space-y-4">
@@ -69,7 +69,7 @@ export function HeatmapScreen({ entries, selectedDate, onSelectDate, onEditDate 
                     disabled={day.isFuture}
                     onClick={() => onSelectDate(day.date)}
                     title={day.date}
-                    className={`aspect-square rounded-[14px] border transition ${
+                    className={`aspect-square rounded-[14px] border transition active:scale-[0.88] ${
                       day.isFuture
                         ? 'cursor-default border-white/4 bg-white/[0.02] opacity-35'
                         : getDayClassName(day.tone)

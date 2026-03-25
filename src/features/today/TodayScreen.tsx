@@ -200,24 +200,10 @@ export function TodayScreen({
         />
       </Card>
 
-      <Card className="space-y-4 p-5">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <div className="text-[15px] font-medium text-slate-100">Deep work</div>
-            <div className="mt-1 text-sm text-slate-500">Швидкі кроки без ручного тертя.</div>
-          </div>
-          <div className="rounded-[22px] border border-white/8 bg-white/[0.03] px-4 py-3 text-right">
-            <div className="text-[11px] uppercase tracking-[0.18em] text-slate-500">Хвилини</div>
-            <div className="mt-1 text-3xl font-semibold tracking-[-0.05em] text-slate-50">{currentEntry.deepWork}</div>
-          </div>
-        </div>
-        <div className="grid grid-cols-4 gap-2">
-          <QuickChip label="0" onClick={() => onChange({ ...currentEntry, deepWork: 0 })} />
-          <QuickChip label="90" onClick={() => onChange({ ...currentEntry, deepWork: 90 })} />
-          <QuickChip label="+10" onClick={() => onChange({ ...currentEntry, deepWork: Math.min(1440, currentEntry.deepWork + 10) })} />
-          <QuickChip label="+30" onClick={() => onChange({ ...currentEntry, deepWork: Math.min(1440, currentEntry.deepWork + 30) })} />
-        </div>
-      </Card>
+      <DeepWorkCard
+        value={currentEntry.deepWork}
+        onChange={(value) => onChange({ ...currentEntry, deepWork: value })}
+      />
 
       <Card className="space-y-5 p-5">
         <div className="space-y-1">
@@ -345,27 +331,50 @@ export function TodayScreen({
         </div>
       </Card>
 
-      <Card className="space-y-2 p-5">
-        <div className="text-sm font-medium text-slate-200">Контекст</div>
-        <div className="text-sm text-slate-400">Вебкам = червоний день і автоматичний план відкату на завтра.</div>
-        <div className="text-sm text-slate-400">MJ 2 дні поспіль = окремий прапорець уваги.</div>
-        <div className="text-sm text-slate-500">Попередній день: {formatShortDate(getPreviousDate(date))}</div>
-      </Card>
+      <div className="pb-2 text-center text-xs text-slate-700">
+        Попередній день: {formatShortDate(getPreviousDate(date))}
+      </div>
     </div>
   )
 }
 
-function QuickChip({ label, onClick }: { label: string; onClick: () => void }) {
+function DeepWorkCard({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  function clamp(v: number) {
+    return Math.max(0, Math.min(1440, v))
+  }
+
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="rounded-[18px] border border-white/10 bg-white/[0.06] px-3 py-3 text-sm font-medium text-slate-100 transition active:scale-95 hover:bg-white/[0.1]"
-    >
-      {label}
-    </button>
+    <Card className="p-5">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <div className="text-[15px] font-medium text-slate-100">Deep work</div>
+          <div className="mt-1 text-sm text-slate-500">Хвилини фокусної роботи.</div>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => onChange(clamp(value - 15))}
+            className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.06] text-lg text-slate-300 transition active:scale-95 hover:bg-white/[0.1]"
+          >
+            −
+          </button>
+          <div className="min-w-[4.5rem] text-center">
+            <div className="text-3xl font-semibold tracking-[-0.05em] text-slate-50">{value}</div>
+            <div className="text-[11px] uppercase tracking-[0.14em] text-slate-600">хв</div>
+          </div>
+          <button
+            type="button"
+            onClick={() => onChange(clamp(value + 15))}
+            className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.06] text-lg text-slate-300 transition active:scale-95 hover:bg-white/[0.1]"
+          >
+            +
+          </button>
+        </div>
+      </div>
+    </Card>
   )
 }
+
 
 function FormulaRow({
   label,

@@ -132,13 +132,27 @@ export function buildDashboardMetrics(entries: DailyEntry[], weights: FormulaWei
   const sleepEntries = last7Entries.filter((e) => e.sleep > 0)
   const stressEntries = last7Entries.filter((e) => e.stress > 0)
 
+  const avgLevel = average(last7Entries.map((entry) => getDayLevel(entry, weights)))
+  const redDaysLast7 = last7Entries.filter((e) => e.webcam).length
+  const hasCleanWeek = redDaysLast7 === 0 && last7Entries.filter((e) => e.mj || e.alcohol).length === 0
+
+  const weekInsight = redDaysLast7 > 0
+    ? { text: `${redDaysLast7} критичн${redDaysLast7 === 1 ? 'ий' : 'их'} ${redDaysLast7 === 1 ? 'день' : 'дні'}. Тримаємо фокус.`, tone: 'rose' as const }
+    : hasCleanWeek && last7Entries.length >= 5
+      ? { text: 'Тиждень чистий. Серія тримається.', tone: 'green' as const }
+      : avgLevel >= 8
+        ? { text: 'Сильний тиждень. Формула говорить — в зоні.', tone: 'green' as const }
+        : avgLevel >= 6
+          ? { text: 'Стабільно. Є куди рости.', tone: 'blue' as const }
+          : { text: 'Важкий тиждень. Але ти трекаєш — це вже крок.', tone: 'amber' as const }
+
   return {
     noWebcamStreak,
     cleanStreak,
     avgEnergy: average(last7Entries.map((entry) => entry.energy)),
     avgMood: average(last7Entries.map((entry) => entry.mood)),
     avgFocus: average(last7Entries.map((entry) => entry.focus)),
-    avgLevel: average(last7Entries.map((entry) => getDayLevel(entry, weights))),
+    avgLevel,
     avgDeepWork: average(last7Entries.map((entry) => entry.deepWork)),
     avgCraving: average(last7Entries.map((entry) => entry.craving)),
     avgSleep: sleepEntries.length ? average(sleepEntries.map((e) => e.sleep)) : null,
@@ -152,12 +166,18 @@ export function buildDashboardMetrics(entries: DailyEntry[], weights: FormulaWei
       return Boolean(entry && !entry.webcam && !entry.mj && !entry.alcohol)
     }).length,
     trackedDaysLast7: last7Entries.length,
+    last7Dates,
+    weekInsight,
     trendEnergy: last7Dates.map((date) => entryMap.get(date)?.energy ?? 0),
     trendMood: last7Dates.map((date) => entryMap.get(date)?.mood ?? 0),
     trendFocus: last7Dates.map((date) => entryMap.get(date)?.focus ?? 0),
     trendLevel: last7Dates.map((date) => {
       const entry = entryMap.get(date)
       return entry ? getDayLevel(entry, weights) : 0
+    }),
+    toneLevel: last7Dates.map((date) => {
+      const entry = entryMap.get(date)
+      return entry ? getEntryTone(entry) : 'empty'
     }),
   }
 }

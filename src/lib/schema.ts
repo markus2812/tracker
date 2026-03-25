@@ -52,7 +52,7 @@ export const SettingsSchema = z.object({
   theme: z.literal('dark').default('dark'),
   checkinHour: z.number().int().min(0).max(23).default(21),
   notesMaxLength: z.number().int().min(50).max(2000).default(280),
-  autosave: z.boolean().default(true),
+  autosave: z.boolean().default(false),
   formulaWeights: FormulaWeightsSchema.default(DEFAULT_FORMULA_WEIGHTS),
 })
 
