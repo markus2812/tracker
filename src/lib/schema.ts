@@ -62,7 +62,7 @@ export const SettingsSchema = z.object({
   notesMaxLength: z.number().int().min(50).max(2000).default(280),
   autosave: z.boolean().default(false),
   formulaWeights: FormulaWeightsSchema.default(DEFAULT_FORMULA_WEIGHTS),
-  weeklyGoals: WeeklyGoalsSchema.default({}),
+  weeklyGoals: WeeklyGoalsSchema.default({ workoutDays: 4, deepWorkMinutes: 240, cleanDays: 7 }),
 })
 
 export type Settings = z.infer<typeof SettingsSchema>
