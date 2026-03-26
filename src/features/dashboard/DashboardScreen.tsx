@@ -1,14 +1,16 @@
 import { useMemo } from 'react'
 import { Card, MicroStat, ScoreDial, SectionHeader, SparkLine } from '../../components/ui'
-import { buildDashboardMetrics, buildWeeklyReview } from '../../lib/stats'
+import { buildCorrelationInsights, buildDashboardMetrics, buildWeeklyGoalsProgress, buildWeeklyReview } from '../../lib/stats'
+import type { CorrelationInsight, DayTone } from '../../lib/stats'
 import type { DailyEntry, Settings } from '../../lib/schema'
-import type { DayTone } from '../../lib/stats'
 
 const DAY_LABELS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Нд']
 
 export function DashboardScreen({ entries, settings }: { entries: DailyEntry[]; settings: Settings }) {
   const metrics = useMemo(() => buildDashboardMetrics(entries, settings.formulaWeights), [entries, settings.formulaWeights])
   const weeklyReview = useMemo(() => buildWeeklyReview(entries, settings.formulaWeights), [entries, settings.formulaWeights])
+  const goalsProgress = useMemo(() => buildWeeklyGoalsProgress(entries, settings.weeklyGoals), [entries, settings.weeklyGoals])
+  const correlations = useMemo(() => buildCorrelationInsights(entries), [entries])
 
   if (entries.length === 0) {
     return (
@@ -134,8 +136,14 @@ export function DashboardScreen({ entries, settings }: { entries: DailyEntry[]; 
         <TrendRow label="Фокус" values={metrics.trendFocus} max={10} tone="amber" />
       </Card>
 
+      {/* Weekly Goals */}
+      <WeeklyGoalsSection goalsProgress={goalsProgress} />
+
       {/* Weekly review */}
       {weeklyReview ? <WeeklyReview review={weeklyReview} /> : null}
+
+      {/* Correlations */}
+      {correlations.length > 0 ? <CorrelationsSection insights={correlations} /> : null}
 
       {/* 30-day */}
       <Card className="card-enter space-y-3 p-4">
@@ -328,5 +336,89 @@ function ReviewRow({ label, value, color }: { label: string; value: string; colo
       <span className="text-sm text-slate-400">{label}</span>
       <span className={`text-sm font-semibold ${color}`}>{value}</span>
     </div>
+  )
+}
+
+type GoalsProgress = ReturnType<typeof buildWeeklyGoalsProgress>
+
+function WeeklyGoalsSection({ goalsProgress }: { goalsProgress: GoalsProgress }) {
+  const { workoutDays, deepWorkMinutes, cleanDays } = goalsProgress
+  const hasAnyGoal = workoutDays.goal > 0 || deepWorkMinutes.goal > 0 || cleanDays.goal > 0
+  if (!hasAnyGoal) return null
+
+  return (
+    <Card className="card-enter space-y-3 p-4">
+      <div className="text-[11px] uppercase tracking-[0.2em] text-slate-500">Цілі тижня</div>
+      {workoutDays.goal > 0 && (
+        <GoalRow label="Тренування" current={workoutDays.current} goal={workoutDays.goal} unit="днів" barColor="bg-emerald-500" />
+      )}
+      {deepWorkMinutes.goal > 0 && (
+        <GoalRow label="Deep work" current={deepWorkMinutes.current} goal={deepWorkMinutes.goal} unit="хв/день" barColor="bg-blue-400" />
+      )}
+      {cleanDays.goal > 0 && (
+        <GoalRow label="Чистих" current={cleanDays.current} goal={cleanDays.goal} unit="днів" barColor="bg-violet-400" />
+      )}
+    </Card>
+  )
+}
+
+function GoalRow({
+  label,
+  current,
+  goal,
+  unit,
+  barColor,
+}: {
+  label: string
+  current: number
+  goal: number
+  unit: string
+  barColor: string
+}) {
+  const pct = Math.min(100, goal > 0 ? Math.round((current / goal) * 100) : 0)
+  const done = current >= goal
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between">
+        <span className="text-sm text-slate-400">{label}</span>
+        <span className={`text-sm font-semibold ${done ? 'text-emerald-300' : 'text-slate-300'}`}>
+          {current}
+          <span className="font-normal text-slate-600">/{goal} {unit}</span>
+          {done ? <span className="ml-1 text-emerald-400">✓</span> : null}
+        </span>
+      </div>
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/8">
+        <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: `${pct}%`, opacity: 0.85 }} />
+      </div>
+    </div>
+  )
+}
+
+function CorrelationsSection({ insights }: { insights: CorrelationInsight[] }) {
+  return (
+    <Card className="card-enter space-y-2.5 p-4">
+      <div className="text-[11px] uppercase tracking-[0.2em] text-slate-500">Кореляції</div>
+      {insights.map((insight, i) => (
+        <div
+          key={i}
+          className={`flex items-center gap-3 rounded-[16px] border px-3 py-2.5 ${
+            insight.tone === 'green'
+              ? 'border-emerald-500/20 bg-emerald-500/[0.06]'
+              : insight.tone === 'amber'
+                ? 'border-amber-400/20 bg-amber-400/[0.06]'
+                : 'border-white/8 bg-white/[0.02]'
+          }`}
+        >
+          <div
+            className={`h-1.5 w-1.5 flex-shrink-0 rounded-full ${
+              insight.tone === 'green' ? 'bg-emerald-400' : insight.tone === 'amber' ? 'bg-amber-400' : 'bg-slate-500'
+            }`}
+          />
+          <span className="text-sm text-slate-300">{insight.text}</span>
+        </div>
+      ))}
+      <div className="text-[11px] text-slate-600">На основі всіх записів</div>
+    </Card>
   )
 }

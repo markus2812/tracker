@@ -47,6 +47,14 @@ export const FormulaWeightsSchema = z.object({
 
 export type FormulaWeights = z.infer<typeof FormulaWeightsSchema>
 
+export const WeeklyGoalsSchema = z.object({
+  workoutDays: z.number().int().min(0).max(7).default(4),
+  deepWorkMinutes: z.number().int().min(0).max(600).default(240),
+  cleanDays: z.number().int().min(0).max(7).default(7),
+})
+
+export type WeeklyGoals = z.infer<typeof WeeklyGoalsSchema>
+
 export const SettingsSchema = z.object({
   id: z.literal('singleton').default('singleton'),
   theme: z.literal('dark').default('dark'),
@@ -54,6 +62,7 @@ export const SettingsSchema = z.object({
   notesMaxLength: z.number().int().min(50).max(2000).default(280),
   autosave: z.boolean().default(false),
   formulaWeights: FormulaWeightsSchema.default(DEFAULT_FORMULA_WEIGHTS),
+  weeklyGoals: WeeklyGoalsSchema.default({}),
 })
 
 export type Settings = z.infer<typeof SettingsSchema>

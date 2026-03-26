@@ -1,5 +1,5 @@
 import { getLastNDates, getWeekStart, shiftDate, todayKey } from './date'
-import { DEFAULT_FORMULA_WEIGHTS, type DailyEntry, type FormulaWeights } from './schema'
+import { DEFAULT_FORMULA_WEIGHTS, type DailyEntry, type FormulaWeights, type WeeklyGoals } from './schema'
 
 export type DayTone = 'empty' | 'green' | 'yellow' | 'red'
 
@@ -286,6 +286,98 @@ export function buildHeatmapWeeks(entryMap: Map<string, DailyEntry>, totalWeeks 
 
 export function getPreviousDate(date: string) {
   return shiftDate(date, -1)
+}
+
+export function buildWeeklyGoalsProgress(entries: DailyEntry[], goals: WeeklyGoals) {
+  const today = todayKey()
+  const weekStart = getWeekStart(today)
+  const weekDates = Array.from({ length: 7 }, (_, i) => shiftDate(weekStart, i)).filter((d) => d <= today)
+  const entryMap = new Map(entries.map((e) => [e.date, e]))
+  const weekEntries = weekDates.map((d) => entryMap.get(d)).filter(Boolean) as DailyEntry[]
+
+  return {
+    workoutDays: {
+      current: weekEntries.filter((e) => e.workout).length,
+      goal: goals.workoutDays,
+    },
+    deepWorkMinutes: {
+      current: weekEntries.length ? Math.round(average(weekEntries.map((e) => e.deepWork))) : 0,
+      goal: goals.deepWorkMinutes,
+    },
+    cleanDays: {
+      current: weekEntries.filter((e) => !e.webcam && !e.mj && !e.alcohol).length,
+      goal: goals.cleanDays,
+    },
+    daysElapsed: weekDates.length,
+  }
+}
+
+export type CorrelationInsight = {
+  text: string
+  tone: 'green' | 'amber' | 'neutral'
+}
+
+export function buildCorrelationInsights(entries: DailyEntry[]): CorrelationInsight[] {
+  if (entries.length < 10) return []
+
+  const insights: CorrelationInsight[] = []
+
+  // Workout → energy
+  const withWorkout = entries.filter((e) => e.workout)
+  const withoutWorkout = entries.filter((e) => !e.workout)
+  if (withWorkout.length >= 5 && withoutWorkout.length >= 5) {
+    const delta = average(withWorkout.map((e) => e.energy)) - average(withoutWorkout.map((e) => e.energy))
+    if (Math.abs(delta) >= 0.5) {
+      insights.push({
+        text: `Тренування → енергія ${delta > 0 ? '+' : ''}${delta.toFixed(1)} пт`,
+        tone: delta > 0 ? 'green' : 'amber',
+      })
+    }
+  }
+
+  // Sleep → focus
+  const sleepEntries = entries.filter((e) => e.sleep > 0)
+  if (sleepEntries.length >= 7) {
+    const goodSleep = sleepEntries.filter((e) => e.sleep >= 7)
+    const poorSleep = sleepEntries.filter((e) => e.sleep < 7)
+    if (goodSleep.length >= 3 && poorSleep.length >= 3) {
+      const delta = average(goodSleep.map((e) => e.focus)) - average(poorSleep.map((e) => e.focus))
+      if (Math.abs(delta) >= 0.5) {
+        insights.push({
+          text: `Сон 7г+ → фокус ${delta > 0 ? '+' : ''}${delta.toFixed(1)} пт`,
+          tone: delta > 0 ? 'green' : 'amber',
+        })
+      }
+    }
+  }
+
+  // Craving → mood
+  const highCraving = entries.filter((e) => e.craving >= 6)
+  const lowCraving = entries.filter((e) => e.craving > 0 && e.craving <= 3)
+  if (highCraving.length >= 4 && lowCraving.length >= 4) {
+    const delta = average(highCraving.map((e) => e.mood)) - average(lowCraving.map((e) => e.mood))
+    if (Math.abs(delta) >= 0.5) {
+      insights.push({
+        text: `Потяг 6+ → настрій ${delta > 0 ? '+' : ''}${delta.toFixed(1)} пт`,
+        tone: delta < 0 ? 'amber' : 'neutral',
+      })
+    }
+  }
+
+  // Deep work → mood
+  const highDw = entries.filter((e) => e.deepWork >= 90)
+  const lowDw = entries.filter((e) => e.deepWork < 30)
+  if (highDw.length >= 5 && lowDw.length >= 5) {
+    const delta = average(highDw.map((e) => e.mood)) - average(lowDw.map((e) => e.mood))
+    if (Math.abs(delta) >= 0.5) {
+      insights.push({
+        text: `Deep work 90+ хв → настрій ${delta > 0 ? '+' : ''}${delta.toFixed(1)} пт`,
+        tone: delta > 0 ? 'green' : 'neutral',
+      })
+    }
+  }
+
+  return insights.slice(0, 3)
 }
 
 function clampToLevel(value: number) {

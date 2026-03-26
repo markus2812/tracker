@@ -1,5 +1,5 @@
 import { BellIcon, Button, Card, SectionHeader, SettingsIcon, SyncIcon, ToggleField } from '../../components/ui'
-import { DEFAULT_FORMULA_WEIGHTS, type FormulaWeights, type Settings } from '../../lib/schema'
+import { DEFAULT_FORMULA_WEIGHTS, type FormulaWeights, type Settings, type WeeklyGoals } from '../../lib/schema'
 import { supportsWebNotifications } from '../../lib/runtime'
 
 type SettingsScreenProps = {
@@ -43,6 +43,7 @@ export function SettingsScreen({
   onSyncNow,
 }: SettingsScreenProps) {
   const w = settings.formulaWeights
+  const g = settings.weeklyGoals
 
   function setWeights(patch: Partial<FormulaWeights>) {
     onChange({ ...settings, formulaWeights: { ...w, ...patch } })
@@ -50,6 +51,10 @@ export function SettingsScreen({
 
   function resetFormula() {
     onChange({ ...settings, formulaWeights: { ...DEFAULT_FORMULA_WEIGHTS } })
+  }
+
+  function setGoals(patch: Partial<WeeklyGoals>) {
+    onChange({ ...settings, weeklyGoals: { ...g, ...patch } })
   }
 
   return (
@@ -239,6 +244,41 @@ export function SettingsScreen({
         </div>
       </Card>
 
+      {/* Weekly Goals */}
+      <Card className="space-y-4 p-5">
+        <div>
+          <div className="text-[15px] font-medium text-slate-100">Цілі тижня</div>
+          <div className="mt-1 text-sm text-slate-500">Прогрес відображається в огляді. 0 = вимкнено.</div>
+        </div>
+        <div className="space-y-3">
+          <GoalSettingRow
+            label="Тренувань"
+            value={g.workoutDays}
+            min={0}
+            max={7}
+            unit="днів"
+            onChange={(v) => setGoals({ workoutDays: v })}
+          />
+          <GoalSettingRow
+            label="Deep work (середнє/день)"
+            value={g.deepWorkMinutes}
+            min={0}
+            max={600}
+            step={15}
+            unit="хв"
+            onChange={(v) => setGoals({ deepWorkMinutes: v })}
+          />
+          <GoalSettingRow
+            label="Чистих днів"
+            value={g.cleanDays}
+            min={0}
+            max={7}
+            unit="днів"
+            onChange={(v) => setGoals({ cleanDays: v })}
+          />
+        </div>
+      </Card>
+
       {/* Sync */}
       <Card className="space-y-4 p-5">
         <div className="flex items-center gap-2">
@@ -274,6 +314,49 @@ export function SettingsScreen({
           {syncState === 'syncing' ? 'Синхронізую...' : 'Синхронізувати зараз'}
         </Button>
       </Card>
+    </div>
+  )
+}
+
+function GoalSettingRow({
+  label,
+  value,
+  min,
+  max,
+  step = 1,
+  unit,
+  onChange,
+}: {
+  label: string
+  value: number
+  min: number
+  max: number
+  step?: number
+  unit: string
+  onChange: (v: number) => void
+}) {
+  return (
+    <div className="flex items-center justify-between rounded-[20px] border border-white/8 bg-white/[0.03] px-4 py-3">
+      <span className="text-sm text-slate-400">{label}</span>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => onChange(Math.max(min, Math.round((value - step) * 10) / 10))}
+          className="flex h-7 w-7 items-center justify-center rounded-xl border border-white/10 bg-white/[0.06] text-sm text-slate-300 transition hover:bg-white/[0.1]"
+        >
+          -
+        </button>
+        <button
+          type="button"
+          onClick={() => onChange(Math.min(max, Math.round((value + step) * 10) / 10))}
+          className="flex h-7 w-7 items-center justify-center rounded-xl border border-white/10 bg-white/[0.06] text-sm text-slate-300 transition hover:bg-white/[0.1]"
+        >
+          +
+        </button>
+        <span className="min-w-[4rem] text-right text-sm font-semibold text-slate-100">
+          {value} <span className="font-normal text-slate-500">{unit}</span>
+        </span>
+      </div>
     </div>
   )
 }

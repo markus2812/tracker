@@ -43,6 +43,12 @@ export const DEFAULT_FORMULA_WEIGHTS = {
   deepWorkCap: 2,
 }
 
+export const WeeklyGoalsSchema = z.object({
+  workoutDays: z.number().int().min(0).max(7).default(4),
+  deepWorkMinutes: z.number().int().min(0).max(600).default(240),
+  cleanDays: z.number().int().min(0).max(7).default(7),
+})
+
 export const SettingsSchema = z.object({
   id: z.literal('singleton').default('singleton'),
   theme: z.literal('dark').default('dark'),
@@ -50,4 +56,5 @@ export const SettingsSchema = z.object({
   notesMaxLength: z.number().int().min(50).max(2000).default(280),
   autosave: z.boolean().default(true),
   formulaWeights: FormulaWeightsSchema.default(DEFAULT_FORMULA_WEIGHTS),
+  weeklyGoals: WeeklyGoalsSchema.default({}),
 })
