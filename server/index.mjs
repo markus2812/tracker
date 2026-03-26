@@ -5,7 +5,6 @@ import { extname, join, normalize, resolve } from 'node:path'
 import { URL } from 'node:url'
 import * as dbModule from './db.mjs'
 import { DailyEntrySchema, SettingsSchema, isoDateSchema } from './schema.mjs'
-import { startTelegramBot } from './telegram.mjs'
 
 const { getDbPath, getEntry, getSettings, listEntries, saveEntry, saveSettings } = dbModule
 
@@ -238,8 +237,6 @@ const server = createServer(async (request, response) => {
 server.listen(port, host, () => {
   console.log(`Tracker server listening on http://${host}:${port}`)
   console.log(`SQLite database: ${getDbPath()}`)
-
-  startTelegramBot(dbModule)
 
   if (!isAllInterfacesHost(host)) {
     return
